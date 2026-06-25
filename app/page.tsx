@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AgentMessage } from "@/components/AgentMessage";
 import { TailoredJobResult } from "@/components/TailoredJobResult";
 import type { Job, TailoredResult } from "@/lib/career-agent";
-import { AGENT_STEPS, FINAL_MESSAGE } from "@/lib/prompts";
+import { buildAgentSteps, buildFinalMessage } from "@/lib/prompts";
 
 type RunState = "idle" | "running" | "done" | "error";
 
@@ -33,23 +33,52 @@ export default function Home() {
   const [visibleSteps, setVisibleSteps] = useState<string[]>([]);
   const [results, setResults] = useState<TailoredResult[]>([]);
   const [error, setError] = useState("");
+  const [role, setRole] = useState("AI Engineer");
+  const [location, setLocation] = useState("San Francisco, CA");
+  const [submittedSearch, setSubmittedSearch] = useState({
+    role: "",
+    location: "",
+  });
+  const [searchedBoards, setSearchedBoards] = useState<string[]>([]);
 
   async function runCareerAgent() {
+    const cleanRole = role.trim();
+    const cleanLocation = location.trim();
+    if (!cleanRole) {
+      setError("Add a role before running CareerAgent.");
+      setRunState("error");
+      return;
+    }
+
+    const agentSteps = buildAgentSteps(cleanRole, cleanLocation);
     setRunState("running");
     setVisibleSteps([]);
     setResults([]);
     setError("");
+    setSearchedBoards([]);
+    setSubmittedSearch({ role: cleanRole, location: cleanLocation });
 
     try {
-      setVisibleSteps([AGENT_STEPS[0]]);
-      const jobsResponse = await fetch("/api/jobs");
-      if (!jobsResponse.ok) throw new Error("I couldn’t load the job list.");
-      const jobsData = (await jobsResponse.json()) as { jobs: Job[] };
+      setVisibleSteps([agentSteps[0]]);
+      const searchParams = new URLSearchParams({
+        role: cleanRole,
+        location: cleanLocation,
+      });
+      const jobsResponse = await fetch(`/api/jobs?${searchParams.toString()}`);
+      const jobsData = (await jobsResponse.json()) as {
+        jobs?: Job[];
+        error?: string;
+        searchedBoards?: string[];
+      };
+      if (!jobsResponse.ok || !jobsData.jobs) {
+        throw new Error(jobsData.error ?? "I couldn’t load live jobs.");
+      }
+      setSearchedBoards(jobsData.searchedBoards ?? []);
 
       await wait(550);
-      setVisibleSteps((steps) => [...steps, AGENT_STEPS[1]]);
+      setVisibleSteps((steps) => [...steps, agentSteps[1]]);
       await wait(600);
-      setVisibleSteps((steps) => [...steps, AGENT_STEPS[2]]);
+      setVisibleSteps((steps) => [...steps, agentSteps[2]]);
 
       const tailorResponse = await fetch("/api/tailor", {
         method: "POST",
@@ -62,7 +91,7 @@ export default function Home() {
       }
 
       await wait(650);
-      setVisibleSteps((steps) => [...steps, AGENT_STEPS[3]]);
+      setVisibleSteps((steps) => [...steps, agentSteps[3]]);
       const tailorData = (await tailorResponse.json()) as {
         results: TailoredResult[];
       };
@@ -154,7 +183,11 @@ export default function Home() {
 
             {(runState !== "idle" || results.length > 0) && (
               <AgentMessage tone="user">
-                Find AI Engineer roles and tailor my resume.
+                Find {submittedSearch.role} roles
+                {submittedSearch.location
+                  ? ` in ${submittedSearch.location}`
+                  : ""}{" "}
+                and tailor my resume.
               </AgentMessage>
             )}
 
@@ -168,7 +201,9 @@ export default function Home() {
             ))}
 
             {runState === "done" && (
-              <AgentMessage tone="success">{FINAL_MESSAGE}</AgentMessage>
+              <AgentMessage tone="success">
+                {buildFinalMessage(results.length)}
+              </AgentMessage>
             )}
 
             {runState === "error" && (
@@ -179,13 +214,49 @@ export default function Home() {
           </div>
 
           <div className="border-t border-[#e5ebe7] bg-[#fbfcfa] p-4 sm:p-5">
-            <div className="flex items-center gap-3 rounded-2xl border border-[#dce4de] bg-white p-2 pl-4 shadow-sm">
-              <p className="min-w-0 flex-1 truncate text-sm text-[#89928d]">
-                Find AI Engineer roles in San Francisco and tailor my resume.
-              </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runCareerAgent();
+              }}
+              className="rounded-2xl border border-[#dce4de] bg-white p-2 shadow-sm"
+            >
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="rounded-xl border border-transparent px-3 py-2 transition focus-within:border-[#bdd8c7] focus-within:bg-[#f8fbf9]">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#7d8981]">
+                    Role
+                  </span>
+                  <input
+                    type="text"
+                    value={role}
+                    onChange={(event) => setRole(event.target.value)}
+                    disabled={isRunning}
+                    maxLength={100}
+                    placeholder="AI Engineer"
+                    className="mt-1 w-full bg-transparent text-sm text-[#253129] outline-none placeholder:text-[#a0aaa3]"
+                  />
+                </label>
+                <label className="rounded-xl border border-transparent px-3 py-2 transition focus-within:border-[#bdd8c7] focus-within:bg-[#f8fbf9]">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#7d8981]">
+                    Location
+                  </span>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    disabled={isRunning}
+                    maxLength={100}
+                    placeholder="San Francisco, CA or Remote"
+                    className="mt-1 w-full bg-transparent text-sm text-[#253129] outline-none placeholder:text-[#a0aaa3]"
+                  />
+                </label>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-[#edf1ee] px-2 pt-2">
+                <p className="hidden text-xs text-[#89928d] sm:block">
+                  Searches real jobs from public Greenhouse boards.
+                </p>
               <button
-                type="button"
-                onClick={runCareerAgent}
+                type="submit"
                 disabled={isRunning}
                 className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#1d6045] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(29,96,69,0.22)] transition hover:-translate-y-0.5 hover:bg-[#154f38] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 sm:px-5"
               >
@@ -210,12 +281,13 @@ export default function Home() {
                   </>
                 )}
               </button>
-            </div>
+              </div>
+            </form>
           </div>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#7a867e]">
-          <span>✓ Five realistic roles</span>
+          <span>✓ Live Greenhouse roles</span>
           <span>✓ Honest resume tailoring</span>
           <span>✓ Ready-to-send emails</span>
         </div>
@@ -232,12 +304,15 @@ export default function Home() {
                 Agent handoff
               </p>
               <h2 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-                Five applications, ready to review.
+                {results.length} live{" "}
+                {results.length === 1 ? "application" : "applications"}, ready
+                to review.
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-[#6c776f]">
-              Each draft emphasizes a different part of your real experience
-              based on what the role asks for.
+              Sourced from {searchedBoards.join(", ")}. Each draft emphasizes
+              a different part of your real experience based on what the role
+              asks for.
             </p>
           </div>
 

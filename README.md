@@ -12,7 +12,7 @@ Job seekers already spend too much time switching between job boards, resume edi
 
 CareerAgent creates one simple agent-style flow:
 
-1. Load five realistic AI Engineer roles.
+1. Search live public Greenhouse boards by role and location.
 2. Read a static master resume.
 3. Match the candidate's existing experience to each role.
 4. Produce a tailored summary, resume bullets, and application email.
@@ -26,7 +26,7 @@ The entire experience is presented as a conversation and a set of agent handoffs
 - TypeScript
 - Tailwind CSS
 - Next.js route handlers
-- Static JSON and Markdown data
+- Greenhouse Job Board API and static Markdown resume data
 - Deterministic local tailoring with no API key required
 
 ## Run locally
@@ -47,8 +47,8 @@ npm run build
 
 ## MVP features
 
-- One-click conversational workflow
-- Five Greenhouse-style fallback jobs
+- Role and location search
+- Live jobs from public Greenhouse boards
 - Static master resume
 - Deterministic keyword and capability matching
 - Tailored professional summary and resume bullets
@@ -78,11 +78,27 @@ lib/
 
 ## Future improvements
 
-- Optional OpenAI-powered tailoring behind the same deterministic fallback
-- Live Greenhouse job ingestion for selected companies
+- Optional OpenAI-powered tailoring behind the deterministic generator
+- More configurable Greenhouse company boards
 - Resume upload and editable agent instructions
 - Export tailored material as PDF or DOCX
 - User approval before sending any application
 - Voice input for the conversational prompt
 
 CareerAgent intentionally does not include authentication, profiles, a database, saved-job tracking, analytics, or a conventional dashboard. The demo stays focused on its core idea: ask once, review thoughtful application materials, and move forward.
+
+## Greenhouse configuration
+
+Greenhouse exposes jobs one company board at a time rather than through a
+global job-search endpoint. CareerAgent searches a small set of real public
+boards by default: Anthropic, Scale AI, Discord, and Figma.
+
+You can replace or extend that set with an environment variable:
+
+```bash
+GREENHOUSE_BOARDS="anthropic:Anthropic,scaleai:Scale AI,figma:Figma"
+```
+
+Each item uses the format `board-token:Company Name`. The board token is the
+identifier in a company’s Greenhouse job-board URL. No Greenhouse API key is
+required for these public read-only endpoints.

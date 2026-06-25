@@ -1,0 +1,42 @@
+[
+  {
+    "id": "job_1",
+    "title": "AI Engineer",
+    "company": "Lattice Labs",
+    "location": "San Francisco, CA",
+    "absolute_url": "https://example.com/jobs/lattice-ai-engineer",
+    "content": "Build production AI assistants and retrieval-augmented generation systems for enterprise teams. Work in Python and FastAPI, integrate LLM APIs, design evaluation datasets, improve prompt quality, and deploy reliable services on AWS. We value pragmatic engineers who can partner with product teams and move from prototype to production."
+  },
+  {
+    "id": "job_2",
+    "title": "Applied AI Engineer",
+    "company": "Clarity Health",
+    "location": "New York, NY · Remote",
+    "absolute_url": "https://example.com/jobs/clarity-applied-ai",
+    "content": "Create applied AI features that help care teams understand complex documents. You will build RAG pipelines, embeddings and vector search, develop Python backend APIs, measure answer quality, add guardrails and citations, and collaborate closely with design and domain experts. Experience shipping user-facing products is important."
+  },
+  {
+    "id": "job_3",
+    "title": "Generative AI Engineer",
+    "company": "Quill Systems",
+    "location": "Austin, TX",
+    "absolute_url": "https://example.com/jobs/quill-generative-ai",
+    "content": "Develop generative AI workflows for business writing and knowledge automation. The role includes prompt engineering, agent orchestration, human-in-the-loop review, LLM evaluation, TypeScript services, and rapid experimentation. You will own prototypes, production hardening, observability, and responsible fallback behavior."
+  },
+  {
+    "id": "job_4",
+    "title": "Machine Learning Platform Engineer",
+    "company": "Atlas Compute",
+    "location": "Seattle, WA",
+    "absolute_url": "https://example.com/jobs/atlas-ml-platform",
+    "content": "Build the cloud platform that powers machine learning and AI product teams. Design APIs and developer tooling, operate Docker and Kubernetes workloads on AWS, improve CI/CD, monitoring and deployment reliability, and support scalable model-serving infrastructure. Strong backend engineering in Python and practical distributed systems experience are preferred."
+  },
+  {
+    "id": "job_5",
+    "title": "Full-Stack AI Product Engineer",
+    "company": "Mosaic Works",
+    "location": "San Francisco, CA · Hybrid",
+    "absolute_url": "https://example.com/jobs/mosaic-full-stack-ai",
+    "content": "Ship polished AI-native product experiences from interface to infrastructure. Build with React, Next.js and TypeScript, create Python or FastAPI services, integrate LLM capabilities, and deploy to the cloud. You will work directly with users, prototype quickly, make thoughtful product decisions, and own features through production."
+  }
+]

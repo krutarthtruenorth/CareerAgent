@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #17211b;
+  --muted: #637069;
+  --line: #dfe7e1;
+  --surface: rgba(255, 255, 255, 0.82);
+  --green: #216e4e;
+  --green-dark: #155239;
+  --green-soft: #e9f5ee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 5%, rgba(177, 224, 195, 0.32), transparent 30rem),
+    radial-gradient(circle at 88% 12%, rgba(226, 216, 181, 0.34), transparent 28rem),
+    #f7f9f5;
+  font-family:
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  min-height: 100vh;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(33, 110, 78, 0.28);
+  outline-offset: 3px;
+}
+
+::selection {
+  color: #123d2c;
+  background: #cce9d7;
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(33, 110, 78, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(33, 110, 78, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.agent-pulse {
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+.message-in {
+  animation: message-in 0.45s ease both;
+}
+
+@keyframes agent-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.78);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

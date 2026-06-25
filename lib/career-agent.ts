@@ -83,29 +83,6 @@ const skillProfiles: SkillProfile[] = [
   },
 ];
 
-const bulletLibrary: Record<string, string> = {
-  "AI / LLM applications":
-    "Built practical AI and LLM product workflows with grounded generation, prompt guardrails, and reliable fallback behavior.",
-  "RAG & vector search":
-    "Developed a retrieval-augmented assistant with Python, FastAPI, embeddings, vector search, and source citations.",
-  "Python & FastAPI":
-    "Designed Python and FastAPI services for product integrations, AI orchestration, and responsive backend APIs.",
-  "React & Next.js":
-    "Shipped customer-facing React and Next.js applications in TypeScript, owning features from interface through API integration.",
-  "AWS & cloud deployment":
-    "Deployed and operated cloud-native services on AWS with monitoring, release automation, and pragmatic rollback plans.",
-  "Docker & Kubernetes":
-    "Containerized production services with Docker and operated Kubernetes workloads supporting reliable cloud deployments.",
-  "Evaluation & guardrails":
-    "Added evaluation fixtures, citations, prompt guardrails, observability, and fallback behavior to improve AI response reliability.",
-  "Product prototyping":
-    "Turned ambiguous user needs into testable product increments and built an end-to-end AI prototype during a weekend hackathon.",
-  "APIs & platform tooling":
-    "Built REST APIs, background jobs, and internal developer tooling for high-volume product workflows.",
-  "CI/CD & operations":
-    "Improved deployment reliability through CI/CD automation, operational runbooks, monitoring, and production-minded engineering.",
-};
-
 function normalize(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9+#./-]+/g, " ");
 }
@@ -117,14 +94,57 @@ function matchedProfiles(job: Job, resume: string) {
   return skillProfiles
     .map((profile) => ({
       ...profile,
-      score: profile.terms.reduce((score, term) => {
-        const jobHasTerm = jobText.includes(normalize(term));
-        const resumeHasTerm = resumeText.includes(normalize(term));
-        return score + (jobHasTerm && resumeHasTerm ? 2 : jobHasTerm ? 1 : 0);
-      }, 0),
+      score: profile.terms.filter((term) => {
+        const normalizedTerm = normalize(term);
+        return (
+          jobText.includes(normalizedTerm) &&
+          resumeText.includes(normalizedTerm)
+        );
+      }).length,
     }))
     .filter((profile) => profile.score > 0)
     .sort((a, b) => b.score - a.score);
+}
+
+function resumeLines(resume: string) {
+  const lines = resume
+    .split(/\n|(?<=[.!?])\s+(?=[A-Z])/)
+    .map((line) =>
+      line
+        .replace(/^#{1,6}\s+/, "")
+        .replace(/^[-*•]\s+/, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter((line) => line.length >= 30 && line.length <= 420);
+
+  return [...new Set(lines)];
+}
+
+function relevantResumeBullets(job: Job, resume: string, profiles: SkillProfile[]) {
+  const jobText = normalize(`${job.title} ${job.content}`);
+  const jobTerms = [...new Set(jobText.split(" ").filter((term) => term.length > 3))];
+  const profileTerms = profiles.flatMap((profile) => profile.terms.map(normalize));
+
+  return resumeLines(resume)
+    .map((line, index) => {
+      const normalizedLine = normalize(line);
+      const profileMatches = profileTerms.filter((term) =>
+        normalizedLine.includes(term),
+      ).length;
+      const jobMatches = jobTerms.filter((term) =>
+        normalizedLine.includes(term),
+      ).length;
+
+      return {
+        line,
+        index,
+        score: profileMatches * 4 + jobMatches,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 6)
+    .map(({ line }) => line);
 }
 
 export function tailorJob(job: Job, resume: string): TailoredResult {
@@ -136,31 +156,31 @@ export function tailorJob(job: Job, resume: string): TailoredResult {
     ? `${topThree.slice(0, -1).join(", ")} and ${topThree.at(-1)}`
     : topThree[0] ?? "full-stack product engineering";
 
-  const matchReason = topProfiles
-    .slice(0, 4)
-    .map((profile) => profile.matchReason);
+  const matchReason =
+    topProfiles.length > 0
+      ? topProfiles.slice(0, 4).map((profile) => profile.matchReason)
+      : ["Matched transferable experience directly from the uploaded resume"];
 
-  const tailoredBullets = topProfiles
-    .map((profile) => bulletLibrary[profile.label])
-    .filter(Boolean)
-    .slice(0, 6);
+  const tailoredBullets = relevantResumeBullets(job, resume, topProfiles);
 
-  while (tailoredBullets.length < 4) {
-    const fallback = bulletLibrary["Product prototyping"];
-    if (!tailoredBullets.includes(fallback)) tailoredBullets.push(fallback);
-    else break;
-  }
+  const tailoredSummary =
+    topThree.length > 0
+      ? `Candidate with experience relevant to ${job.title}, including ${lead}. This positioning reflects capabilities explicitly present in the uploaded resume and emphasizes the areas most aligned with ${job.company}’s role.`
+      : `Candidate whose uploaded resume contains transferable experience relevant to the ${job.title} role. The selected resume content is prioritized against the job description without adding unsupported skills or experience.`;
 
-  const tailoredSummary = `Full-stack engineer with 7 years of experience shipping production software, with directly relevant strengths in ${lead}. Brings hands-on experience building AI-enabled products, reliable backend services, and cloud deployments while partnering closely with product teams from prototype through launch.`;
+  const emailStrengths =
+    topThree.length > 0
+      ? topThree.join(", ")
+      : "the responsibilities described in the role";
 
   const body = `Hi ${job.company} team,
 
-I’m excited to apply for the ${job.title} role. My background combines full-stack product development with hands-on AI engineering, including RAG systems, LLM integrations, backend APIs, and cloud deployment.
+I’m excited to apply for the ${job.title} role. My uploaded resume includes experience relevant to ${emailStrengths}.
 
-Your focus on ${topThree.join(", ")} strongly aligns with work I’ve already shipped. I’d welcome the opportunity to bring that practical, product-minded approach to ${job.company}.
+The role’s focus aligns with work and capabilities already reflected in my resume. I’d welcome the opportunity to discuss how that experience could contribute to ${job.company}.
 
 Thank you for your consideration,
-Jordan Lee`;
+Candidate`;
 
   return {
     jobId: job.id,
@@ -177,9 +197,11 @@ Jordan Lee`;
       body,
     },
     honestyCheck: [
-      "Did not add unsupported model training, research, or domain-specific experience.",
-      `Reframed existing ${skills.slice(0, 3).join(", ")} experience toward the priorities in this role.`,
-      "Kept all claims grounded in the master resume; no titles, employers, or metrics were invented.",
+      "Used the uploaded resume as the only source of candidate experience.",
+      skills.length > 0
+        ? `Prioritized existing ${skills.slice(0, 3).join(", ")} experience for this role.`
+        : "Prioritized the most relevant transferable statements from the uploaded resume.",
+      "Did not invent skills, titles, employers, dates, metrics, or accomplishments.",
     ],
   };
 }

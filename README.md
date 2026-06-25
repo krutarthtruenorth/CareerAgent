@@ -13,7 +13,7 @@ Job seekers already spend too much time switching between job boards, resume edi
 CareerAgent creates one simple agent-style flow:
 
 1. Search live public Greenhouse boards by role and location.
-2. Read a static master resume.
+2. Read a resume uploaded as PDF, DOCX, TXT, or Markdown.
 3. Match the candidate's existing experience to each role.
 4. Produce a tailored summary, resume bullets, and application email.
 5. Explain what was changed through an honesty check.
@@ -49,7 +49,8 @@ npm run build
 
 - Role and location search
 - Live jobs from public Greenhouse boards
-- Static master resume
+- Session-only resume upload
+- PDF, DOCX, TXT, and Markdown text extraction
 - Deterministic keyword and capability matching
 - Tailored professional summary and resume bullets
 - Draft application email for every role
@@ -57,6 +58,10 @@ npm run build
 - Copy buttons for bullets and emails
 - Loading sequence and error states
 - No authentication, database, or dashboard
+
+Uploaded resumes are parsed in memory for the current tailoring request and
+are not written to disk or stored in a database. CareerAgent uses the uploaded
+resume as the only source for candidate experience.
 
 ## Project structure
 
@@ -80,7 +85,7 @@ lib/
 
 - Optional OpenAI-powered tailoring behind the deterministic generator
 - More configurable Greenhouse company boards
-- Resume upload and editable agent instructions
+- Editable agent instructions
 - Export tailored material as PDF or DOCX
 - User approval before sending any application
 - Voice input for the conversational prompt

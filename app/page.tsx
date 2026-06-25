@@ -40,12 +40,19 @@ export default function Home() {
     location: "",
   });
   const [searchedBoards, setSearchedBoards] = useState<string[]>([]);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeInputKey, setResumeInputKey] = useState(0);
 
   async function runCareerAgent() {
     const cleanRole = role.trim();
     const cleanLocation = location.trim();
     if (!cleanRole) {
       setError("Add a role before running CareerAgent.");
+      setRunState("error");
+      return;
+    }
+    if (!resumeFile) {
+      setError("Upload your resume before running CareerAgent.");
       setRunState("error");
       return;
     }
@@ -80,10 +87,13 @@ export default function Home() {
       await wait(600);
       setVisibleSteps((steps) => [...steps, agentSteps[2]]);
 
+      const tailorFormData = new FormData();
+      tailorFormData.append("jobs", JSON.stringify(jobsData.jobs));
+      tailorFormData.append("resume", resumeFile);
+
       const tailorResponse = await fetch("/api/tailor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobs: jobsData.jobs }),
+        body: tailorFormData,
       });
       if (!tailorResponse.ok) {
         const payload = (await tailorResponse.json()) as { error?: string };
@@ -128,7 +138,7 @@ export default function Home() {
         </a>
         <div className="flex items-center gap-2 rounded-full border border-[#dbe4de] bg-white/70 px-3 py-1.5 text-xs font-medium text-[#647069] backdrop-blur">
           <span className="h-1.5 w-1.5 rounded-full bg-[#41a16f]" />
-          Resume grounded
+          {resumeFile ? "Resume ready" : "Resume required"}
         </div>
       </nav>
 
@@ -177,8 +187,8 @@ export default function Home() {
           <div className="min-h-[280px] space-y-4 px-5 py-6 sm:px-7">
             <AgentMessage>
               Hi! I can find five relevant AI roles, tailor your resume for
-              each one, and draft the outreach — without making you manage
-              another dashboard.
+              each one, and draft the outreach. Upload your resume first, and
+              I’ll use only the experience contained in that file.
             </AgentMessage>
 
             {(runState !== "idle" || results.length > 0) && (
@@ -221,6 +231,60 @@ export default function Home() {
               }}
               className="rounded-2xl border border-[#dce4de] bg-white p-2 shadow-sm"
             >
+              <div className="mb-2 rounded-xl border border-dashed border-[#cbd9cf] bg-[#f8fbf9] p-3">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0">
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#65736a]">
+                      Your resume
+                    </span>
+                    <p className="mt-1 truncate text-sm font-medium text-[#314038]">
+                      {resumeFile
+                        ? resumeFile.name
+                        : "Upload PDF, DOCX, TXT, or Markdown"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#849087]">
+                      Max 5 MB · processed for this request only
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {resumeFile && (
+                      <button
+                        type="button"
+                        disabled={isRunning}
+                        onClick={() => {
+                          setResumeFile(null);
+                          setResumeInputKey((key) => key + 1);
+                        }}
+                        className="rounded-lg px-3 py-2 text-xs font-semibold text-[#69766e] transition hover:bg-white hover:text-[#9a4035]"
+                      >
+                        Remove
+                      </button>
+                    )}
+                    <label className="cursor-pointer rounded-lg border border-[#cad8ce] bg-white px-3 py-2 text-xs font-semibold text-[#276849] shadow-sm transition hover:border-[#9fc0ab] hover:text-[#185137]">
+                      {resumeFile ? "Replace file" : "Choose file"}
+                      <input
+                        key={resumeInputKey}
+                        type="file"
+                        accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+                        disabled={isRunning}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          if (file && file.size > 5 * 1024 * 1024) {
+                            setError("The resume must be smaller than 5 MB.");
+                            setRunState("error");
+                            event.target.value = "";
+                            return;
+                          }
+                          setResumeFile(file);
+                          setError("");
+                          if (runState === "error") setRunState("idle");
+                        }}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="rounded-xl border border-transparent px-3 py-2 transition focus-within:border-[#bdd8c7] focus-within:bg-[#f8fbf9]">
                   <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#7d8981]">
@@ -253,11 +317,11 @@ export default function Home() {
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 border-t border-[#edf1ee] px-2 pt-2">
                 <p className="hidden text-xs text-[#89928d] sm:block">
-                  Searches real jobs from public Greenhouse boards.
+                  Live Greenhouse jobs · uploaded resume only
                 </p>
               <button
                 type="submit"
-                disabled={isRunning}
+                disabled={isRunning || !resumeFile}
                 className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#1d6045] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(29,96,69,0.22)] transition hover:-translate-y-0.5 hover:bg-[#154f38] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 sm:px-5"
               >
                 {isRunning ? (
@@ -288,7 +352,8 @@ export default function Home() {
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#7a867e]">
           <span>✓ Live Greenhouse roles</span>
-          <span>✓ Honest resume tailoring</span>
+          <span>✓ PDF and DOCX support</span>
+          <span>✓ Uploaded resume only</span>
           <span>✓ Ready-to-send emails</span>
         </div>
       </section>

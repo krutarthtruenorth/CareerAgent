@@ -3,7 +3,7 @@ export function buildAgentSteps(role: string, location: string) {
     `Searching live Greenhouse boards for ${role} roles${
       location ? ` in ${location}` : ""
     }...`,
-    "Reading your master resume...",
+    "Reading your uploaded resume...",
     "Matching your experience to each live role...",
     "Generating tailored resumes and application emails...",
   ];
@@ -14,5 +14,5 @@ export function buildFinalMessage(resultCount: number) {
     resultCount === 1 ? "role" : "roles"
   }, tailored your resume, and drafted application ${
     resultCount === 1 ? "email" : "emails"
-  }. I only reframed experience already present in your resume.`;
+  }. I used only the experience present in your uploaded resume.`;
 }

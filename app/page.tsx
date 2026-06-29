@@ -14,8 +14,33 @@ type GmailStatus = {
   email?: string | null;
 };
 
+const MAX_RESUME_SIZE = 4 * 1024 * 1024;
+
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text();
+
+  if (!contentType.includes("application/json")) {
+    const isHtml = text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html");
+    const deployHint =
+      response.status === 413
+        ? "The uploaded resume is too large for the deployed server. Try a PDF under 4 MB or upload a DOCX/TXT version."
+        : isHtml
+          ? "The deployed server returned an HTML error page instead of JSON. Check deployment logs for the failing API route."
+          : fallbackMessage;
+
+    throw new Error(deployHint);
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(fallbackMessage);
+  }
+}
 
 function BrandMark() {
   return (
@@ -103,11 +128,11 @@ export default function Home() {
         location: cleanLocation,
       });
       const jobsResponse = await fetch(`/api/jobs?${searchParams.toString()}`);
-      const jobsData = (await jobsResponse.json()) as {
+      const jobsData = await readJsonResponse<{
         jobs?: Job[];
         error?: string;
         searchedBoards?: string[];
-      };
+      }>(jobsResponse, "I couldn’t load live jobs.");
       if (!jobsResponse.ok || !jobsData.jobs) {
         throw new Error(jobsData.error ?? "I couldn’t load live jobs.");
       }
@@ -127,16 +152,19 @@ export default function Home() {
         method: "POST",
         body: tailorFormData,
       });
+      const tailorData = await readJsonResponse<{
+        results?: TailoredResult[];
+        error?: string;
+      }>(tailorResponse, "I couldn’t tailor the applications.");
       if (!tailorResponse.ok) {
-        const payload = (await tailorResponse.json()) as { error?: string };
-        throw new Error(payload.error ?? "I couldn’t tailor the applications.");
+        throw new Error(tailorData.error ?? "I couldn’t tailor the applications.");
+      }
+      if (!tailorData.results) {
+        throw new Error("CareerAgent did not return tailored applications.");
       }
 
       await wait(650);
       setVisibleSteps((steps) => [...steps, agentSteps[3]]);
-      const tailorData = (await tailorResponse.json()) as {
-        results: TailoredResult[];
-      };
       await wait(750);
       setResults(tailorData.results);
       setRunState("done");
@@ -290,7 +318,7 @@ export default function Home() {
                         : "Upload PDF, DOCX, TXT, or Markdown"}
                     </p>
                     <p className="mt-0.5 text-xs text-[#849087]">
-                      Max 5 MB · processed for this request only
+                      Max 4 MB · processed for this request only
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -316,8 +344,8 @@ export default function Home() {
                         disabled={isRunning}
                         onChange={(event) => {
                           const file = event.target.files?.[0] ?? null;
-                          if (file && file.size > 5 * 1024 * 1024) {
-                            setError("The resume must be smaller than 5 MB.");
+                          if (file && file.size > MAX_RESUME_SIZE) {
+                            setError("The resume must be smaller than 4 MB for deployment. Try compressing the PDF or uploading DOCX/TXT.");
                             setRunState("error");
                             event.target.value = "";
                             return;

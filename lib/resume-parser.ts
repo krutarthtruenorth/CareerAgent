@@ -1,7 +1,9 @@
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 
-const MAX_RESUME_SIZE = 5 * 1024 * 1024;
+// Keep uploads under common serverless body limits. Some deployments return an
+// HTML 413 page before the route runs, so the client mirrors this limit too.
+export const MAX_RESUME_SIZE = 4 * 1024 * 1024;
 const MIN_RESUME_TEXT_LENGTH = 80;
 
 const supportedExtensions = new Set(["pdf", "docx", "txt", "md"]);

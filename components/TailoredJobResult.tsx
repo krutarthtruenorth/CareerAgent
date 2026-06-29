@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { TailoredResult } from "@/lib/career-agent";
+import type { Job, TailoredResult } from "@/lib/career-agent";
 
 type TailoredJobResultProps = {
   result: TailoredResult;
+  job?: Job;
+  resumeFile: File | null;
+  gmailConnected: boolean;
   index: number;
 };
 
@@ -81,8 +84,63 @@ function CopyButton({ label, text }: { label: string; text: string }) {
 
 export function TailoredJobResult({
   result,
+  job,
+  resumeFile,
+  gmailConnected,
   index,
 }: TailoredJobResultProps) {
+  const [recipient, setRecipient] = useState("");
+  const [draftState, setDraftState] = useState<
+    "idle" | "creating" | "created" | "error"
+  >("idle");
+  const [draftMessage, setDraftMessage] = useState("");
+  const [gmailUrl, setGmailUrl] = useState("");
+
+  async function createDraft() {
+    if (!job || !resumeFile) {
+      setDraftState("error");
+      setDraftMessage("The job or uploaded resume is no longer available.");
+      return;
+    }
+
+    setDraftState("creating");
+    setDraftMessage("");
+
+    const formData = new FormData();
+    formData.append("job", JSON.stringify(job));
+    formData.append("resume", resumeFile);
+    formData.append("recipient", recipient.trim());
+
+    try {
+      const response = await fetch("/api/gmail/draft", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        gmailUrl?: string;
+        attachmentName?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not create the Gmail draft.");
+      }
+
+      setGmailUrl(payload.gmailUrl ?? "https://mail.google.com/mail/u/0/#drafts");
+      setDraftState("created");
+      setDraftMessage(
+        `Draft created with ${payload.attachmentName ?? "the tailored resume"} attached.`,
+      );
+    } catch (error) {
+      setDraftState("error");
+      setDraftMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not create the Gmail draft.",
+      );
+    }
+  }
+
   return (
     <article
       className="message-in overflow-hidden rounded-[24px] border border-[#dae4dd] bg-white/90 shadow-[0_16px_50px_rgba(37,58,46,0.08)] backdrop-blur"
@@ -189,6 +247,86 @@ export function TailoredJobResult({
             <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#566159]">
               {result.applicationEmail.body}
             </p>
+
+            <div className="mt-5 border-t border-[#e4e9e5] pt-4">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7a857e]">
+                  Recipient email
+                </span>
+                <input
+                  type="email"
+                  value={recipient}
+                  onChange={(event) => setRecipient(event.target.value)}
+                  placeholder="Optional — add later in Gmail"
+                  disabled={draftState === "creating"}
+                  className="mt-2 w-full rounded-xl border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#354239] outline-none transition placeholder:text-[#a0aaa3] focus:border-[#9fc0ab]"
+                />
+              </label>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={createDraft}
+                  disabled={
+                    !gmailConnected ||
+                    !job ||
+                    !resumeFile ||
+                    draftState === "creating"
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#1d6045] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#154f38] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {draftState === "creating" ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                      Creating draft
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M4 5h16v14H4z" />
+                        <path d="m4 7 8 6 8-6" />
+                      </svg>
+                      Create Gmail draft
+                    </>
+                  )}
+                </button>
+
+                {draftState === "created" && (
+                  <a
+                    href={gmailUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold text-[#216e4e] underline underline-offset-4"
+                  >
+                    Open Gmail drafts
+                  </a>
+                )}
+              </div>
+
+              {!gmailConnected && (
+                <p className="mt-2 text-xs text-[#8a645c]">
+                  Connect Gmail above to create drafts.
+                </p>
+              )}
+              {draftMessage && (
+                <p
+                  className={`mt-2 text-xs ${
+                    draftState === "error"
+                      ? "text-[#9a4035]"
+                      : "text-[#397458]"
+                  }`}
+                >
+                  {draftMessage}
+                </p>
+              )}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-[#eadfbd] bg-[#fffaf0] p-4">

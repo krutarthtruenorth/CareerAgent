@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AgentMessage } from "@/components/AgentMessage";
+import { GmailConnection } from "@/components/GmailConnection";
 import { TailoredJobResult } from "@/components/TailoredJobResult";
 import type { Job, TailoredResult } from "@/lib/career-agent";
 import { buildAgentSteps, buildFinalMessage } from "@/lib/prompts";
 
 type RunState = "idle" | "running" | "done" | "error";
+type GmailStatus = {
+  configured: boolean;
+  connected: boolean;
+  email?: string | null;
+};
 
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -42,6 +48,30 @@ export default function Home() {
   const [searchedBoards, setSearchedBoards] = useState<string[]>([]);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeInputKey, setResumeInputKey] = useState(0);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [gmailStatus, setGmailStatus] = useState<GmailStatus>({
+    configured: true,
+    connected: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/gmail/status")
+      .then((response) => response.json())
+      .then((status: GmailStatus) => {
+        if (!cancelled) setGmailStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGmailStatus({ configured: false, connected: false });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function runCareerAgent() {
     const cleanRole = role.trim();
@@ -61,6 +91,7 @@ export default function Home() {
     setRunState("running");
     setVisibleSteps([]);
     setResults([]);
+    setJobs([]);
     setError("");
     setSearchedBoards([]);
     setSubmittedSearch({ role: cleanRole, location: cleanLocation });
@@ -81,6 +112,7 @@ export default function Home() {
         throw new Error(jobsData.error ?? "I couldn’t load live jobs.");
       }
       setSearchedBoards(jobsData.searchedBoards ?? []);
+      setJobs(jobsData.jobs);
 
       await wait(550);
       setVisibleSteps((steps) => [...steps, agentSteps[1]]);
@@ -224,6 +256,21 @@ export default function Home() {
           </div>
 
           <div className="border-t border-[#e5ebe7] bg-[#fbfcfa] p-4 sm:p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dde6df] bg-[#f7faf8] px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold text-[#354239]">
+                  Gmail drafts
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#7c8981]">
+                  Compose-only access. CareerAgent cannot send automatically.
+                </p>
+              </div>
+              <GmailConnection
+                configured={gmailStatus.configured}
+                connected={gmailStatus.connected}
+                email={gmailStatus.email}
+              />
+            </div>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -386,6 +433,9 @@ export default function Home() {
               <TailoredJobResult
                 key={result.jobId}
                 result={result}
+                job={jobs.find((job) => job.id === result.jobId)}
+                resumeFile={resumeFile}
+                gmailConnected={gmailStatus.connected}
                 index={index}
               />
             ))}
